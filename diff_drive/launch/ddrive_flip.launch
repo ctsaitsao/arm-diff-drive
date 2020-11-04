@@ -1,0 +1,18 @@
+<launch>
+
+  <arg name="paused" default="True"/>
+
+  <include file="$(find diff_drive)/launch/ddrive.launch">
+    <arg name="paused" value="$(arg paused)"/>
+  </include>
+
+  <include file="$(find diff_drive)/launch/ddrive_rviz.launch">
+    <arg name="launch_gui" value="False"/>
+    <arg name="rviz_config" value="-d $(find diff_drive)/config/ddrive_follow_rect.rviz"/>
+  </include>
+
+  <rosparam command="load" file="$(find diff_drive)/config/flip_params.yaml"/>
+  
+  <node name="flip" type="flip" pkg="diff_drive" output="screen"/>
+
+</launch>

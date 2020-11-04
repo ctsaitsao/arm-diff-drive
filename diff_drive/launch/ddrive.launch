@@ -1,0 +1,18 @@
+<launch>
+
+  <arg name="paused" default="False"/>
+  
+  <param name="/robot_description" command="$(find xacro)/xacro $(find diff_drive)/urdf/ddrive.gazebo.xacro"/> 
+
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find diff_drive)/worlds/ddrive.world"/>  <!-- spawn service crashes with this world but not w/ empty world, but robot still moves no problem -->
+    <arg name="paused" value="$(arg paused)"/>
+    <arg name="use_sim_time" value="True"/>
+    <arg name="gui" value="True"/>
+    <arg name="recording" value="False"/>
+    <arg name="debug" value="False"/>
+  </include>
+  
+  <node name="urdf_spawner" type="spawn_model" pkg="gazebo_ros" respawn="False" output="screen" args="-urdf -model diff_drive -param '/robot_description'"/>
+
+</launch>

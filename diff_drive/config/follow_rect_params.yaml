@@ -1,0 +1,5 @@
+waypoints: [[0, 0], [1, 0], [1, 1], [0, 1]]  
+kp_linear: 0.1  
+kp_rotational: 0.3  
+dist_thresh: 0.05  
+angle_thresh: 0.10  

@@ -1,0 +1,91 @@
+#!/usr/bin/env python
+"""
+Node makes turtlebot go in straight line, flip itself, and go back same line.
+
+SUBSCRIBERS:
+    /diff/odom (nav_msgs/Odometry): odometry information of the turtlebot
+
+PUBLISHERS:
+    /diff/cmd_vel (geometry_msgs/Twist): commanded twist for turtlebot
+
+PARAMETERS:
+    dist: distance robot travels before flipping
+"""
+import rospy
+from nav_msgs.msg import Odometry
+from geometry_msgs.msg import Twist, Pose2D, Vector3
+from enum import Enum, auto
+
+
+class State(Enum):
+    """ The state of the turtlebot control loop.
+        These are different modes that the controller can be in.
+    """
+    MOVING_FORWARD = auto()
+    MOVING_BACKWARD = auto()
+
+
+class Flip:
+    """ Causes turtlebot to do flips. """
+    def __init__(self):
+        self.__odom_sub = rospy.Subscriber('/diff/odom', Odometry,
+                                           self.odom_callback)
+        self.__cmd_vel_pub = rospy.Publisher('/diff/cmd_vel', Twist,
+                                             queue_size=10)
+        self.__dist = rospy.get_param('dist')
+        self.__pose = Pose2D()
+        self.__state = State.MOVING_FORWARD
+        # self.__timer = rospy.Timer(rospy.Duration(3), self.timer_callback)
+
+    def move_forward(self):
+        """ Gives turtlebot a forward linear velocity. """
+        print('fwd')
+        u = Twist(linear=Vector3(x=1, y=0, z=0),
+                  angular=Vector3(x=0, y=0, z=0))
+        self.__cmd_vel_pub.publish(u)
+
+    # def move_backward(self):
+    #     """ Gives turtlebot a backward linear velocity. """
+    #     print('back')
+    #     u = Twist(linear=Vector3(x=-100, y=0, z=0),
+    #               angular=Vector3(x=0, y=0, z=0))
+    #     self.__cmd_vel_pub.publish(u)
+
+    def odom_callback(self, data):
+        """ Used as the 'odom' callback.
+
+            Args:
+               data (nav_msgs/Odometry): the received odom message data
+        """
+        self.__pose.x = data.pose.pose.position.x
+        # if self.__state == State.MOVING_FORWARD:
+        #     self.move_forward()
+        # else:
+        #     self.move_backward()
+        self.move_forward()
+
+    # def timer_callback(self, event):
+    #     """ Handle the timer callback.
+
+    #     Args:
+    #       event (TimerEvent): This timer doesn't use any of the event info.
+    #     """
+    #     print('timer')
+    #     if self.__state == State.MOVING_FORWARD:
+    #         self.__state = State.MOVING_BACKWARD
+    #     else:
+    #         self.__state = State.MOVING_FORWARD
+
+
+def main():
+    """ The main() function. """
+    rospy.init_node('flip')
+    Flip()
+    rospy.spin()
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except rospy.ROSInterruptException:
+        pass

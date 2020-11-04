@@ -1,0 +1,146 @@
+#!/usr/bin/env python
+"""
+Node makes turtlebot follow a series of waypoints in the shape of a rectangle.
+
+SUBSCRIBERS:
+    /diff/odom (nav_msgs/Odometry): odometry information of the turtlebot
+
+PUBLISHERS:
+    /diff/cmd_vel (geometry_msgs/Twist): commanded twist for turtlebot
+
+PARAMETERS:
+    waypoints: list of waypoints (x,y) to follow
+    kp_linear: proportional control constant for linear velocity
+    kp_rotational: proportional control constant for angular velocity
+    dist_thresh: distance at which turtlebot will switch to next waypoint
+    angle_thresh: angle difference at which turtlebot will stop turning
+"""
+import rospy
+from nav_msgs.msg import Odometry
+from geometry_msgs.msg import Twist, Pose2D, Point, Vector3
+from math import pow, atan2, sqrt, pi, acos
+from enum import Enum, auto
+from tf.transformations import euler_from_quaternion
+
+
+class State(Enum):
+    """ The state of the turtlebot control loop.
+        These are different modes that the controller can be in.
+    """
+    MOVING_FORWARD = auto()
+    TURNING = auto()
+
+
+class FollowRect:
+    """ Causes turtlebot to follow a rectangular trajectory. """
+    def __init__(self):
+        self.__odom_sub = rospy.Subscriber('/diff/odom', Odometry,
+                                           self.odom_callback)
+        self.__cmd_vel_pub = rospy.Publisher('/diff/cmd_vel', Twist,
+                                             queue_size=10)
+        self.__waypoints = rospy.get_param('waypoints')
+        self.__kp_l = rospy.get_param('kp_linear')
+        self.__kp_r = rospy.get_param('kp_rotational')
+        self.__dist_thresh = rospy.get_param('dist_thresh')
+        self.__angle_thresh = rospy.get_param('angle_thresh')
+        self.__pose = Pose2D()
+        self.__counter = 1  # start moving towards second waypoint
+        self.__state = State.MOVING_FORWARD
+
+    def dist_diff(self, waypoint_pose):
+        """ Euclidean distance from the current position to the waypoint.
+
+            Args:
+                waypoint_pose (geometry_msgs/Pose2D): pose of targeted waypoint
+        """
+        return sqrt(pow((waypoint_pose.x - self.__pose.x), 2)
+                    + pow((waypoint_pose.y - self.__pose.y), 2))
+
+    def angle_diff(self, waypoint_pose):
+        """ Angle difference between current angle and the angle that points
+            towards the targeted waypoint.
+
+            Args:
+                waypoint_pose (geometry_msgs/Pose2D): pose of targeted waypoint
+        """
+        waypoint_angle = atan2(waypoint_pose.y - self.__pose.y,
+                               waypoint_pose.x - self.__pose.x)
+        diff = waypoint_angle - self.__pose.theta
+
+        # Accounting for the limit overflow between pi and -pi.
+        if diff > pi:
+            return diff - 2*pi
+        elif diff < -pi:
+            return diff + 2*pi
+        else:
+            return diff
+
+    def move_forward(self):
+        """ Gives turtlebot a forward linear velocity.
+            Uses feedback control to keep turtlebot on right trajectory.
+        """
+        target_waypoint = self.__waypoints[self.__counter]
+        waypoint_pose = Pose2D(x=target_waypoint[0], y=target_waypoint[1])
+
+        if self.dist_diff(waypoint_pose) >= self.__dist_thresh:
+            u_l = self.__kp_l * self.dist_diff(waypoint_pose)
+            u_r = self.__kp_r * self.angle_diff(waypoint_pose)
+            u = Twist(linear=Vector3(x=u_l, y=0, z=0),
+                      angular=Vector3(x=0, y=0, z=u_r))
+            self.__cmd_vel_pub.publish(u)
+        else:
+            u = Twist()
+            self.__cmd_vel_pub.publish(u)
+            self.__counter += 1
+            if self.__counter == len(self.__waypoints):
+                self.__counter = 0
+            self.__state = State.TURNING
+
+    def turn(self):
+        """ Makes turtlebot rotate until alligned with next waypoint. """
+        target_waypoint = self.__waypoints[self.__counter]
+        waypoint_pose = Pose2D(x=target_waypoint[0], y=target_waypoint[1])
+
+        if self.angle_diff(waypoint_pose) >= self.__angle_thresh:
+            u = Twist(linear=Vector3(x=0, y=0, z=0),
+                      angular=Vector3(x=0, y=0, z=0.2))  # turning vel of 0.3
+            self.__cmd_vel_pub.publish(u)
+        else:
+            u = Twist()
+            self.__cmd_vel_pub.publish(u)
+            self.__state = State.MOVING_FORWARD
+
+    def odom_callback(self, data):
+        """ Used as the 'odom' callback.
+
+            Args:
+               data (nav_msgs/Odometry): the received odom message data
+        """
+        self.__pose.x = data.pose.pose.position.x
+        self.__pose.y = data.pose.pose.position.y
+        quat = (
+            data.pose.pose.orientation.x,
+            data.pose.pose.orientation.y,
+            data.pose.pose.orientation.z,
+            data.pose.pose.orientation.w)
+        euler = euler_from_quaternion(quat)
+        self.__pose.theta = euler[2]  # yaw
+        # self.__pose.theta = 2 * acos(data.pose.pose.orientation.w)
+        if self.__state == State.MOVING_FORWARD:
+            self.move_forward()
+        else:
+            self.turn()
+
+
+def main():
+    """ The main() function. """
+    rospy.init_node('follow_rect')
+    FollowRect()
+    rospy.spin()
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except rospy.ROSInterruptException:
+        pass
