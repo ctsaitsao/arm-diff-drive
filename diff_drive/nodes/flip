@@ -8,8 +8,6 @@ SUBSCRIBERS:
 PUBLISHERS:
     /diff/cmd_vel (geometry_msgs/Twist): commanded twist for turtlebot
 
-PARAMETERS:
-    dist: distance robot travels before flipping
 """
 import rospy
 from nav_msgs.msg import Odometry
@@ -35,21 +33,19 @@ class Flip:
         self.__dist = rospy.get_param('dist')
         self.__pose = Pose2D()
         self.__state = State.MOVING_FORWARD
-        # self.__timer = rospy.Timer(rospy.Duration(3), self.timer_callback)
+        self.__timer = rospy.Timer(rospy.Duration(2), self.timer_callback)
 
     def move_forward(self):
         """ Gives turtlebot a forward linear velocity. """
-        print('fwd')
-        u = Twist(linear=Vector3(x=1, y=0, z=0),
+        u = Twist(linear=Vector3(x=0.5, y=0, z=0),
                   angular=Vector3(x=0, y=0, z=0))
         self.__cmd_vel_pub.publish(u)
 
-    # def move_backward(self):
-    #     """ Gives turtlebot a backward linear velocity. """
-    #     print('back')
-    #     u = Twist(linear=Vector3(x=-100, y=0, z=0),
-    #               angular=Vector3(x=0, y=0, z=0))
-    #     self.__cmd_vel_pub.publish(u)
+    def move_backward(self):
+        """ Gives turtlebot a backward linear velocity. """
+        u = Twist(linear=Vector3(x=-0.5, y=0, z=0),
+                  angular=Vector3(x=0, y=0, z=0))
+        self.__cmd_vel_pub.publish(u)
 
     def odom_callback(self, data):
         """ Used as the 'odom' callback.
@@ -58,23 +54,21 @@ class Flip:
                data (nav_msgs/Odometry): the received odom message data
         """
         self.__pose.x = data.pose.pose.position.x
-        # if self.__state == State.MOVING_FORWARD:
-        #     self.move_forward()
-        # else:
-        #     self.move_backward()
-        self.move_forward()
+        if self.__state == State.MOVING_FORWARD:
+            self.move_forward()
+        else:
+            self.move_backward()
 
-    # def timer_callback(self, event):
-    #     """ Handle the timer callback.
+    def timer_callback(self, event):
+        """ Handle the timer callback.
 
-    #     Args:
-    #       event (TimerEvent): This timer doesn't use any of the event info.
-    #     """
-    #     print('timer')
-    #     if self.__state == State.MOVING_FORWARD:
-    #         self.__state = State.MOVING_BACKWARD
-    #     else:
-    #         self.__state = State.MOVING_FORWARD
+        Args:
+          event (TimerEvent): This timer doesn't use any of the event info.
+        """
+        if self.__state == State.MOVING_FORWARD:
+            self.__state = State.MOVING_BACKWARD
+        else:
+            self.__state = State.MOVING_FORWARD
 
 
 def main():

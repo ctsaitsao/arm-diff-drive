@@ -103,7 +103,7 @@ class FollowRect:
 
         if self.angle_diff(waypoint_pose) >= self.__angle_thresh:
             u = Twist(linear=Vector3(x=0, y=0, z=0),
-                      angular=Vector3(x=0, y=0, z=0.2))  # turning vel of 0.3
+                      angular=Vector3(x=0, y=0, z=0.2))  # turning vel of 0.2
             self.__cmd_vel_pub.publish(u)
         else:
             u = Twist()

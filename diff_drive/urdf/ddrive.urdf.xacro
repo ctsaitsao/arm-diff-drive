@@ -27,13 +27,6 @@
     <color rgba="0 0 0 1"/>
   </material>
 
-  <!-- <link name="world"/>
-
-  <joint name="fixed" type="fixed">
-    <parent link="world"/>
-    <child link="base_link"/>
-  </joint> -->
-
   <link name="base_link">
     <visual>
       <origin rpy="0 0 0" xyz="0 0 ${chassis_thickness/2 + wheel_radius - wheel_axle_offset}"/>

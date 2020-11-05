@@ -1,0 +1,123 @@
+#!/usr/bin/env python
+"""
+Node causes interbotix arm to do planning tasks.
+
+SUBSCRIBERS:
+    /diff/odom (nav_msgs/Odometry): odometry information of the turtlebot
+
+PUBLISHERS:
+    /diff/cmd_vel (geometry_msgs/Twist): commanded twist for turtlebot
+
+PARAMETERS:
+    dist: distance robot travels before flipping
+"""
+import sys
+import copy
+import rospy
+import moveit_commander
+import moveit_msgs.msg
+import geometry_msgs.msg
+from math import pi
+from std_msgs.msg import String
+from moveit_commander.conversions import pose_to_list
+
+
+class Mover:
+    """ Causes interbotix arm to move according to user. """
+    def __init__(self):
+        super(Mover, self).__init__()
+        moveit_commander.roscpp_initialize(sys.argv)
+        rospy.init_node('mover', anonymous=True)
+        robot = moveit_commander.RobotCommander()
+        scene = moveit_commander.PlanningSceneInterface()
+        group_name = 'interbotix_arm'
+        group = moveit_commander.MoveGroupCommander(group_name)
+        planning_frame = group.get_planning_frame()
+        eef_link = group.get_end_effector_link()
+        group_names = robot.get_group_names()
+        self.box_name = ''
+        self.robot = robot
+        self.scene = scene
+        self.group = group
+        self.display_trajectory_publisher = display_trajectory_publisher
+        self.planning_frame = planning_frame
+        self.eef_link = eef_link
+        self.group_names = group_names
+
+        self.robot_name = 'px100'
+
+        #Add Table
+
+        robot_name = self.robot_name
+        box_name = self.box_name
+        scene = self.scene
+
+        ## BEGIN_SUB_TUTORIAL add_box
+        ##
+        ## Adding Objects to the Planning Scene
+        ## ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        ## First, we will create a box in the planning scene at the location of the left finger:
+        box_pose = geometry_msgs.msg.PoseStamped()
+        box_pose.header.frame_id = robot_name + "/ee_gripper_link"
+        box_pose.pose.orientation.w = 1.0
+        box_name = "box"
+        self.scene.add_box(box_name, box_pose, size=(0.025, 0.025, 0.05))
+
+        ## END_SUB_TUTORIAL
+        # Copy local variables back to class variables. In practice, you should use the class
+        # variables directly unless you have a good reason not to.
+        self.box_name=box_name
+        return self.wait_for_state_update(box_is_known=True, timeout=timeout)
+
+    def move_forward(self):
+        """ Gives turtlebot a forward linear velocity. """
+        print('fwd')
+        u = Twist(linear=Vector3(x=1, y=0, z=0),
+                  angular=Vector3(x=0, y=0, z=0))
+        self.__cmd_vel_pub.publish(u)
+
+    # def move_backward(self):
+    #     """ Gives turtlebot a backward linear velocity. """
+    #     print('back')
+    #     u = Twist(linear=Vector3(x=-100, y=0, z=0),
+    #               angular=Vector3(x=0, y=0, z=0))
+    #     self.__cmd_vel_pub.publish(u)
+
+    def odom_callback(self, data):
+        """ Used as the 'odom' callback.
+
+            Args:
+               data (nav_msgs/Odometry): the received odom message data
+        """
+        self.__pose.x = data.pose.pose.position.x
+        # if self.__state == State.MOVING_FORWARD:
+        #     self.move_forward()
+        # else:
+        #     self.move_backward()
+        self.move_forward()
+
+    # def timer_callback(self, event):
+    #     """ Handle the timer callback.
+
+    #     Args:
+    #       event (TimerEvent): This timer doesn't use any of the event info.
+    #     """
+    #     print('timer')
+    #     if self.__state == State.MOVING_FORWARD:
+    #         self.__state = State.MOVING_BACKWARD
+    #     else:
+    #         self.__state = State.MOVING_FORWARD
+
+
+def main():
+    """ The main() function. """
+    rospy.init_node('mover')
+    Mover()
+    rospy.spin()
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except rospy.ROSInterruptException:
+        pass
