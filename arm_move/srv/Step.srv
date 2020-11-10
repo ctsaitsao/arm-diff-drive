@@ -1,0 +1,4 @@
+geometry_msgs/Pose pose_goal
+bool close_gripper
+---
+moveit_msgs/MoveItErrorCodes err_code

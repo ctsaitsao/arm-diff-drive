@@ -1,0 +1,20 @@
+<launch>
+
+  <arg name="use_actual" default="False"/>
+  <arg name="use_fake" default="False"/>
+
+  <include file="$(find interbotix_moveit)/launch/interbotix_moveit.launch">
+    <arg name="robot_name" value="px100"/>
+    <arg name="dof" value="4"/>
+    <arg name="use_actual" value="$(arg use_actual)"/>
+    <arg name="use_fake" value="$(arg use_fake)"/>
+  </include>
+
+  <rosparam command="load" file="$(find arm_move)/config/waypoints.yaml"/>
+
+  <node name="mover" type="mover" pkg="arm_move" ns="/px100" output="screen">
+    <remap from="/attached_collision_object" to="/px100/attached_collision_object"/>
+    <remap from="/collision_object" to="/px100/collision_object"/>
+  </node>
+
+</launch>

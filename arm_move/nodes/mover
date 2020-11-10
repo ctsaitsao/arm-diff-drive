@@ -2,116 +2,192 @@
 """
 Node causes interbotix arm to do planning tasks.
 
-SUBSCRIBERS:
-    /diff/odom (nav_msgs/Odometry): odometry information of the turtlebot
-
-PUBLISHERS:
+SERVICES:
     /diff/cmd_vel (geometry_msgs/Twist): commanded twist for turtlebot
 
 PARAMETERS:
     dist: distance robot travels before flipping
 """
 import sys
-import copy
 import rospy
 import moveit_commander
-import moveit_msgs.msg
-import geometry_msgs.msg
-from math import pi
-from std_msgs.msg import String
-from moveit_commander.conversions import pose_to_list
+from geometry_msgs.msg import Pose, PoseStamped, Point
+from moveit_commander.conversions import pose_to_list   ####
+from arm_move.srv import (Reset, ResetRequest, ResetResponse, Step,
+                          StepRequest, StepResponse, Follow, FollowResponse,
+                          GetPose, GetPoseResponse)
 
 
 class Mover:
     """ Causes interbotix arm to move according to user. """
     def __init__(self):
         super(Mover, self).__init__()
-        moveit_commander.roscpp_initialize(sys.argv)
-        rospy.init_node('mover', anonymous=True)
-        robot = moveit_commander.RobotCommander()
-        scene = moveit_commander.PlanningSceneInterface()
-        group_name = 'interbotix_arm'
-        group = moveit_commander.MoveGroupCommander(group_name)
-        planning_frame = group.get_planning_frame()
-        eef_link = group.get_end_effector_link()
-        group_names = robot.get_group_names()
-        self.box_name = ''
-        self.robot = robot
-        self.scene = scene
-        self.group = group
-        self.display_trajectory_publisher = display_trajectory_publisher
-        self.planning_frame = planning_frame
-        self.eef_link = eef_link
-        self.group_names = group_names
 
-        self.robot_name = 'px100'
+        self.__robot = moveit_commander.RobotCommander()
+        self.__scene = moveit_commander.PlanningSceneInterface()
+        self.__group = moveit_commander.MoveGroupCommander('interbotix_arm')
+        self.__gripper_group = moveit_commander.MoveGroupCommander(
+                                                'interbotix_gripper')
+        self.__planning_frame = self.__group.get_planning_frame()
 
-        #Add Table
+        self.__waypoints = rospy.get_param('/waypoints')
 
-        robot_name = self.robot_name
-        box_name = self.box_name
-        scene = self.scene
+        rospy.Service('reset', Reset, self.reset_callback)
+        rospy.wait_for_service('reset')
+        self.__reset = rospy.ServiceProxy('reset', Reset)
 
-        ## BEGIN_SUB_TUTORIAL add_box
-        ##
-        ## Adding Objects to the Planning Scene
-        ## ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        ## First, we will create a box in the planning scene at the location of the left finger:
-        box_pose = geometry_msgs.msg.PoseStamped()
-        box_pose.header.frame_id = robot_name + "/ee_gripper_link"
-        box_pose.pose.orientation.w = 1.0
-        box_name = "box"
-        self.scene.add_box(box_name, box_pose, size=(0.025, 0.025, 0.05))
+        rospy.Service('step', Step, self.step_callback)
+        rospy.wait_for_service('step')
+        self.__step = rospy.ServiceProxy('step', Step)
 
-        ## END_SUB_TUTORIAL
-        # Copy local variables back to class variables. In practice, you should use the class
-        # variables directly unless you have a good reason not to.
-        self.box_name=box_name
-        return self.wait_for_state_update(box_is_known=True, timeout=timeout)
+        rospy.Service('follow', Follow, self.follow_callback)
+        rospy.Service('get_pose', GetPose, self.get_pose_callback)
 
-    def move_forward(self):
-        """ Gives turtlebot a forward linear velocity. """
-        print('fwd')
-        u = Twist(linear=Vector3(x=1, y=0, z=0),
-                  angular=Vector3(x=0, y=0, z=0))
-        self.__cmd_vel_pub.publish(u)
+        self.add_table()
+        self.__reset(ResetRequest(pose_goal=Pose(position=Point(x=0.15,
+                                                                z=0.07)),
+                     clear_waypoints=False))
 
-    # def move_backward(self):
-    #     """ Gives turtlebot a backward linear velocity. """
-    #     print('back')
-    #     u = Twist(linear=Vector3(x=-100, y=0, z=0),
-    #               angular=Vector3(x=0, y=0, z=0))
-    #     self.__cmd_vel_pub.publish(u)
+    def wait_for_state_update(self, item_name, item_attached=False,
+                              item_known=False, timeout=4):
+        """ Ensures collision updates are received by waiting until changes
+            are reflected in get_attached_objects() and
+            get_known_object_names() lists.
 
-    def odom_callback(self, data):
-        """ Used as the 'odom' callback.
+            Taken from Interbotix MoveIt Tutorial's Python interface example.
 
             Args:
-               data (nav_msgs/Odometry): the received odom message data
+                item_name (string): name of item being added to planning scene
+                item_attached (bool): whether item is already in
+                                        get_attached_objects()
+                item_known (bool): whether item is already in
+                                        get_known_object_names()
+                timeout (int): time limit if item can't be added
         """
-        self.__pose.x = data.pose.pose.position.x
-        # if self.__state == State.MOVING_FORWARD:
-        #     self.move_forward()
-        # else:
-        #     self.move_backward()
-        self.move_forward()
+        start = rospy.get_time()
+        seconds = rospy.get_time()
 
-    # def timer_callback(self, event):
-    #     """ Handle the timer callback.
+        while (seconds - start < timeout) and not rospy.is_shutdown():
 
-    #     Args:
-    #       event (TimerEvent): This timer doesn't use any of the event info.
-    #     """
-    #     print('timer')
-    #     if self.__state == State.MOVING_FORWARD:
-    #         self.__state = State.MOVING_BACKWARD
-    #     else:
-    #         self.__state = State.MOVING_FORWARD
+            attached_objects = self.__scene.get_attached_objects([item_name])
+            is_attached = len(attached_objects.keys()) > 0
+            is_known = item_name in self.__scene.get_known_object_names()
+
+            if (item_attached == is_attached) and (item_known == is_known):
+                return True
+
+            rospy.sleep(0.1)
+            seconds = rospy.get_time()
+
+        return False
+
+    def add_table(self):
+        """ Adds table (surface robot stands on) to planning scene. """
+        table_pose = PoseStamped()
+        table_pose.header.frame_id = self.__planning_frame
+        table_pose.pose.position.z = -0.025
+        self.__scene.add_box('table', table_pose, size=(0.5, 0.5, 0.05))
+        while not self.wait_for_state_update('table', item_known=True):
+            self.__scene.add_box('table', table_pose, size=(0.5, 0.5, 0.05))
+
+    def add_realsense(self, pose):
+        """ Adds realsense box to planning scene.
+
+            Args:
+                pose (geometry_msgs/Pose): pose for the realsense box
+        """
+        rs_pose = PoseStamped(pose=pose)
+        rs_pose.header.frame_id = self.__planning_frame
+        self.__scene.add_box('realsense', rs_pose, size=(0.05, 0.09, 0.14))
+        while not self.wait_for_state_update('realsense', item_known=True):
+            self.__scene.add_box('realsense', rs_pose, size=(0.05, 0.09, 0.14))
+
+    def reset_callback(self, req):
+        """ Callback function for the reset service.
+            Resets realsense to specified pose.
+
+            Args:
+                req (arm_move/ResetRequest): request containing pose
+
+            Returns:
+                - (arm_move/ResetResponse): empty response
+        """
+        self.add_realsense(req.pose_goal)
+        self.__group.set_named_target('Home')
+        self.__group.go()
+        self.__group.stop()
+
+        if req.clear_waypoints:
+            rospy.set_param('/waypoints', [])
+
+        return ResetResponse()
+
+    def step_callback(self, req):
+        """ Callback function for the step service.
+            Moves the robot to a user-specified position.
+
+            Args:
+                req (arm_move/StepRequest): request containing pose and
+                                            gripper status
+
+            Returns:
+                - (arm_move/StepResponse): MoveItErrorCode to indicate success
+                                            or fail
+        """
+        pose_goal = req.pose_goal
+
+        self.__group.set_pose_target(pose_goal)
+        success, traj_msg, _, err_code = self.__group.plan()
+        if not success:
+            return StepResponse(err_code=err_code)
+        self.__waypoints.append(pose_goal)
+
+        self.__group.execute(traj_msg)
+        self.__group.stop()
+        self.__group.clear_pose_targets()
+
+        if req.close_gripper:
+            self.__gripper_group.set_named_target('Closed')
+        else:
+            self.__gripper_group.set_named_target('Open')
+
+        self.__gripper_group.go()
+        self.__gripper_group.stop()
+        self.__gripper_group.clear_pose_targets()
+
+        return StepResponse(err_code=err_code)
+
+    def follow_callback(self, req):
+        """ Callback function for the follow service.
+            Has the robot move to each waypoint, in sequence.
+
+            Args:
+                req (arm_move/FollowRequest): request containing flag that
+                                    determines if cycle is repeated or not
+
+            Returns:
+                - (arm_move/FollowResponse): empty response
+        """
+        for waypoint in self.__waypoints:
+            self.__step(StepRequest(pose_goal=waypoint))
+
+    def get_pose_callback(self, req):
+        """ Callback function for the get_pose service.
+            Retrieves current end effector pose of robot.
+
+            Args:
+                req (arm_move/GetPoseRequest): empty request
+
+            Returns:
+                - (arm_move/GetPoseResponse): response containing pose
+        """
+        return GetPoseResponse(pose=self.__group.get_current_pose().pose)
 
 
 def main():
     """ The main() function. """
-    rospy.init_node('mover')
+    moveit_commander.roscpp_initialize(sys.argv)
+    rospy.init_node('mover', anonymous=True)
     Mover()
     rospy.spin()
 
