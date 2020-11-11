@@ -61,6 +61,7 @@
   <build_export_depend>moveit_commander</build_export_depend>
   <exec_depend>moveit_commander</exec_depend>
   <depend>moveit_msgs</depend>
+  <exec_depend>interbotix_moveit</exec_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

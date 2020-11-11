@@ -3,16 +3,26 @@
 Node causes interbotix arm to do planning tasks.
 
 SERVICES:
-    /diff/cmd_vel (geometry_msgs/Twist): commanded twist for turtlebot
+    reset (arm_move/Reset): resets position of realsense box and sends robot
+                            to Home position
+
+    step (arm_move/Step): plans and moves robot to specified pose, stores
+                        successful waypoints, and returns error code of
+                        success/failure of plan
+
+    follow (arm_move/Follow): moves robot through saved waypoints, with
+                            option to loop
+
+    get_pose (arm_move/GetPose): gets current end-effector pose of robot
 
 PARAMETERS:
-    dist: distance robot travels before flipping
+    /waypoints: poses that robot follows, includes gripper status data
 """
 import sys
 import rospy
 import moveit_commander
 from geometry_msgs.msg import Pose, PoseStamped, Point
-from moveit_commander.conversions import pose_to_list   ####
+from moveit_commander.conversions import pose_to_list, list_to_pose
 from arm_move.srv import (Reset, ResetRequest, ResetResponse, Step,
                           StepRequest, StepResponse, Follow, FollowResponse,
                           GetPose, GetPoseResponse)
@@ -25,9 +35,11 @@ class Mover:
 
         self.__robot = moveit_commander.RobotCommander()
         self.__scene = moveit_commander.PlanningSceneInterface()
-        self.__group = moveit_commander.MoveGroupCommander('interbotix_arm')
+        self.__group = moveit_commander.MoveGroupCommander('interbotix_arm',
+                                                           wait_for_servers=30)
         self.__gripper_group = moveit_commander.MoveGroupCommander(
-                                                'interbotix_gripper')
+                                                'interbotix_gripper',
+                                                wait_for_servers=30)
         self.__planning_frame = self.__group.get_planning_frame()
 
         self.__waypoints = rospy.get_param('/waypoints')
@@ -127,26 +139,31 @@ class Mover:
             Moves the robot to a user-specified position.
 
             Args:
-                req (arm_move/StepRequest): request containing pose and
-                                            gripper status
+                req (arm_move/StepRequest): request containing, gripper status,
+                                            and flag for storing waypoints
 
             Returns:
                 - (arm_move/StepResponse): MoveItErrorCode to indicate success
                                             or fail
         """
         pose_goal = req.pose_goal
+        close_gripper = req.close_gripper
+        save_wp = req.save_wp
 
         self.__group.set_pose_target(pose_goal)
         success, traj_msg, _, err_code = self.__group.plan()
         if not success:
             return StepResponse(err_code=err_code)
-        self.__waypoints.append(pose_goal)
+
+        if save_wp:
+            self.__waypoints.append([pose_to_list(pose_goal), close_gripper])
+            rospy.set_param('/waypoints', self.__waypoints)
 
         self.__group.execute(traj_msg)
         self.__group.stop()
         self.__group.clear_pose_targets()
 
-        if req.close_gripper:
+        if close_gripper:
             self.__gripper_group.set_named_target('Closed')
         else:
             self.__gripper_group.set_named_target('Open')
@@ -168,12 +185,25 @@ class Mover:
             Returns:
                 - (arm_move/FollowResponse): empty response
         """
-        for waypoint in self.__waypoints:
-            self.__step(StepRequest(pose_goal=waypoint))
+        wp_count = 0
+
+        while wp_count < len(self.__waypoints):
+
+            self.__step(StepRequest(
+                pose_goal=list_to_pose(self.__waypoints[wp_count][0]),
+                close_gripper=self.__waypoints[wp_count][1],
+                save_wp=False))
+
+            wp_count += 1
+
+            if req.repeat and wp_count == len(self.__waypoints):
+                wp_count = 0
+
+        return FollowResponse()
 
     def get_pose_callback(self, req):
         """ Callback function for the get_pose service.
-            Retrieves current end effector pose of robot.
+            Retrieves current end-effector pose of robot.
 
             Args:
                 req (arm_move/GetPoseRequest): empty request

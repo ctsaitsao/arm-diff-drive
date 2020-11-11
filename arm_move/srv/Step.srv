@@ -1,4 +1,5 @@
 geometry_msgs/Pose pose_goal
 bool close_gripper
+bool save_wp
 ---
 moveit_msgs/MoveItErrorCodes err_code
