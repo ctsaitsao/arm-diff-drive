@@ -8,8 +8,8 @@ This package contains code that causes an Interbotix PincherX-100 ("px100") robo
 
 ## Demos:
 
-This is a demo of the robot looping through two waypoints and avoiding the RealSense box in between them. It also shows the RViz visualization: https://youtu.be/xHolN7LH-4I \
-This is a demo of the robot picking and placing an object through a similar waypoint path (waypoints also include gripper open/close data): https://youtu.be/1QW-ObcVXuI 
+1. This is a demo of the robot looping through two waypoints and avoiding the RealSense box in between them. It also shows the RViz visualization: https://youtu.be/xHolN7LH-4I \
+2. This is a demo of the robot picking and placing an object through a similar waypoint path (waypoints also include gripper open/close data): https://youtu.be/1QW-ObcVXuI 
 
 ## Usage Instructions and Configuration Options:
 
