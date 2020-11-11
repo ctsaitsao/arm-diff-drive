@@ -1,0 +1,42 @@
+#!/usr/bin/env python
+"""
+Node tests error behavior of mover's step service.
+
+SERVICES:
+    /px100/step (arm_move/Step): plans and moves robot to specified pose,
+                                stores successful waypoints, and returns error
+                                code of success/failure of plan
+"""
+import rospy
+from geometry_msgs.msg import Pose, Point
+from arm_move.srv import Step, StepRequest
+import unittest
+
+
+class MoverTest(unittest.TestCase):
+    """ Tests Mover's step service. """
+    def __init__(self, *args):
+        super(MoverTest, self).__init__(*args)
+
+    def test_step(self):
+        """ Calls the step service in such a way that the robot will crash
+            into the floor.
+
+            Verifies that the step service returns an error code.
+        """
+        rospy.wait_for_service('/px100/step')
+        step = rospy.ServiceProxy('/px100/step', Step)
+
+        res = step(StepRequest(
+                    pose_goal=Pose(position=Point(x=0.1, z=-0.1)),
+                    close_gripper=True,
+                    save_wp=False))
+
+        self.assertEqual(res.err_code.val, -1)
+
+
+if __name__ == '__main__':
+
+    import rostest
+    rospy.init_node('mover_test')
+    rostest.rosrun('arm_move', 'mover_test', MoverTest)
