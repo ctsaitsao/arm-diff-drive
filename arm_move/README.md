@@ -42,7 +42,7 @@ This package contains code that causes an Interbotix PincherX-100 ("px100") robo
     rosservice call /px100/follow "repeat: true"
     ```
 
-5. Put any small item where the grippers close and observe the pick-and-place operation.
+5. Put any small item where the grippers close and observe the pick-and-place operation. If gripper does not close properly during the operation, try opening the gripper using RViz's motion planning GUI (current -> open state) prior to starting `follow` service.
 
 ## Configuration Options:
 
