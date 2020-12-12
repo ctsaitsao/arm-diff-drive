@@ -1,4 +1,4 @@
-# ME495 (Embedded Systems for Robotics) Homework 03 "diff_drive" Package
+# ME495 (Embedded Systems for Robotics) Homework 3 "diff_drive" Package
 
 Author: Christopher Tsai
 
