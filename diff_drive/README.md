@@ -1,8 +1,8 @@
-# ME495 (Embedded Systems for Robotics) Homework 03 "diff_drive" Package:
+# ME495 (Embedded Systems for Robotics) Homework 03 "diff_drive" Package
 
 Author: Christopher Tsai
 
-## Overview:
+## Overview
 
 This package contains nodes that accomplish two tasks:
 
@@ -10,12 +10,12 @@ This package contains nodes that accomplish two tasks:
 
 2. Cause a simulated differential drive robot to go in a straight line, flip over itself, and go back the same path over and over.
 
-## Demos:
+## Demos
 
 Rectangular trajectory: https://youtu.be/BcLgBR_f7zI
 Flipping: https://youtu.be/OnJZ-ByWNCY
 
-## Usage Instructions and Configuration Options:
+## Usage Instructions
 
 1. Create a new workspace and clone the demonstration code.
 ```Shell
@@ -46,7 +46,7 @@ roslaunch diff_drive ddrive_follow_rect.launch
 roslaunch diff_drive ddrive_flip.launch
 ```
 
-## Configuration Options:
+## Configuration Options
 
 - Both demos by default start in a paused state and the user must click the "play" button in Gazebo in order to start the simulation. In order to start immediately after running, add the `paused:=False` option to the launch command.
 - The `config` folder contains a few configuration options for the appearance and weight of the differential drive robot (in `ddrive_params.yaml`) as well as options to edit the control and shape of the rectangular trajectory (in `follow_rect.yaml`).
