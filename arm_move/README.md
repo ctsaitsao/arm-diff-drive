@@ -1,4 +1,4 @@
-# ME495 (Embedded Systems for Robotics) Homework 03 "arm_move" Package
+# ME495 (Embedded Systems for Robotics) Homework 3 "arm_move" Package
 
 Author: Christopher Tsai
 
