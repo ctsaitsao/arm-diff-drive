@@ -1,6 +1,4 @@
-# ME495 (Embedded Systems for Robotics) Homework 3 "diff_drive" Package
-
-Author: Christopher Tsai
+# Diff Drive ROS Package
 
 ## Overview
 
