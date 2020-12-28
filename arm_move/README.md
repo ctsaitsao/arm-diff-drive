@@ -1,6 +1,4 @@
-# ME495 (Embedded Systems for Robotics) Homework 3 "arm_move" Package
-
-Author: Christopher Tsai
+# Arm Move ROS Package
 
 ## Overview
 
