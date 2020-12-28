@@ -10,8 +10,8 @@ This package contains nodes that accomplish two tasks:
 
 ## Demos
 
-Rectangular trajectory: https://youtu.be/BcLgBR_f7zI
-Flipping: https://youtu.be/OnJZ-ByWNCY
+- Rectangular trajectory: https://youtu.be/BcLgBR_f7zI
+- Flipping: https://youtu.be/OnJZ-ByWNCY
 
 ## Usage Instructions
 
